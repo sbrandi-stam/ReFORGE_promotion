@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ReFORGE Consortium Map</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H" crossorigin="anonymous">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/topojson-client@3.1.0/dist/topojson-client.min.js" integrity="sha384-Ukv1p/xTma6P4/2bY5KzWBw+ydSpXmhCMtyciIQVDJ1RmOxtCYNMF1uXT9T63H67" crossorigin="anonymous"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#122c39; --teal:#0C6C54; --steel:#3d8a74; --sky:#8fbfb0;
+    --orange:#E87818; --orange-soft:#f4d4bb; --paper:#f3f7f5; --card:#ffffff;
+    --line:#d4e2dc; --muted:#4a655c;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;}
+  body{font-family:"IBM Plex Sans",system-ui,sans-serif;color:var(--ink);background:var(--paper);}
+  :focus-visible{outline:3px solid var(--orange);outline-offset:2px;}
+  .wrap{display:grid;grid-template-columns:1.35fr 1fr;height:660px;}
+  @media (max-width:820px){.wrap{grid-template-columns:1fr;height:auto;}}
+  .mapcol{position:relative;border-right:1px solid var(--line);}
+  @media (max-width:820px){.mapcol{border-right:none;border-bottom:1px solid var(--line);height:420px;}}
+  #map{position:absolute;inset:0;width:100%;height:100%;background:#e8f2ee;z-index:0;}
+  @media (max-width:820px){#map{position:relative;height:420px;}}
+  .leaflet-container{font-family:"IBM Plex Sans",sans-serif;}
+  .maphdr{position:absolute;top:14px;left:14px;z-index:500;background:rgba(255,255,255,.92);backdrop-filter:blur(4px);
+    border:1px solid var(--line);border-radius:11px;padding:11px 15px;pointer-events:none;box-shadow:0 4px 14px -8px rgba(18,44,57,.4);}
+  .eyebrow{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--steel);margin:0 0 3px;}
+  .maptitle{font-family:"Space Grotesk",sans-serif;font-weight:600;font-size:17px;margin:0;color:var(--ink);}
+  .pin{display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50% 50% 50% 4px;
+    transform:rotate(45deg);border:2.5px solid #fff;box-shadow:0 3px 9px rgba(18,44,57,.4);cursor:pointer;transition:transform .15s;background:var(--steel);}
+  .pin span{transform:rotate(-45deg);color:#fff;font-family:"Space Grotesk",sans-serif;font-weight:700;font-size:14px;}
+  .pin:hover{transform:rotate(45deg) scale(1.12);}
+  .pin.active{background:var(--orange);}
+
+  .panel{padding:24px 24px 28px;display:flex;flex-direction:column;background:var(--paper);overflow:hidden;}
+  .panel .eyebrow{color:var(--orange);}
+  .panel h2{font-family:"Space Grotesk",sans-serif;font-weight:600;font-size:22px;margin:2px 0 6px;line-height:1.15;text-wrap:balance;}
+  .panel .lead{font-size:13px;line-height:1.5;color:var(--muted);margin:0 0 14px;max-width:44ch;}
+  .countrytabs{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:16px;}
+  .ctab{font-family:"IBM Plex Mono",monospace;font-size:12px;font-weight:500;padding:8px 12px;min-height:36px;border-radius:999px;
+    border:1px solid var(--line);background:#fff;color:var(--teal);cursor:pointer;transition:background-color .15s,color .15s,border-color .15s;display:inline-flex;align-items:center;gap:7px;}
+  .ctab:hover{border-color:var(--steel);}
+  .ctab.active{background:var(--teal);color:#fff;border-color:var(--teal);}
+  .ctab .n{background:var(--orange);color:#fff;border-radius:999px;font-size:10px;padding:1px 6px;line-height:1.4;}
+  .ctab.active .n{background:#fff;color:var(--teal);}
+  .cards{display:flex;flex-direction:column;gap:11px;overflow-y:auto;flex:1;padding-right:4px;}
+  .cards::-webkit-scrollbar{width:8px;} .cards::-webkit-scrollbar-thumb{background:var(--line);border-radius:8px;}
+  .pcard{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:13px 14px;display:flex;gap:12px;
+    opacity:0;transform:translateY(8px);animation:rise .3s forwards;}
+  @keyframes rise{to{opacity:1;transform:none;}}
+  .logo{width:48px;height:48px;flex:0 0 48px;border-radius:10px;display:flex;align-items:center;justify-content:center;
+    font-family:"Space Grotesk",sans-serif;font-weight:700;font-size:14px;color:#fff;letter-spacing:.02em;line-height:1;text-align:center;
+    background:linear-gradient(150deg,var(--teal),var(--steel));}
+  .logo.le{background:linear-gradient(150deg,var(--ink),var(--teal));}
+  .logo.pub{background:linear-gradient(150deg,var(--orange),#c96f1f);}
+  .logo.ngo{background:linear-gradient(150deg,var(--steel),var(--sky));}
+  .logo.res{background:linear-gradient(150deg,#2c5c52,#3d8a74);}
+  .pc-body{flex:1;min-width:0;}
+  .pc-top{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:2px;}
+  .pc-acr{font-family:"Space Grotesk",sans-serif;font-weight:600;font-size:15px;}
+  .pc-type{font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--orange);
+    border:1px solid var(--orange-soft);padding:1px 6px;border-radius:5px;}
+  .pc-name{font-size:11px;color:var(--muted);margin:0 0 5px;line-height:1.3;}
+  .pc-role{font-size:12px;line-height:1.48;margin:0;color:var(--ink);}
+  .hint{font-size:11px;color:var(--muted);margin-top:12px;font-style:italic;}
+  @media (prefers-reduced-motion:reduce){
+    .pcard{animation:none;opacity:1;transform:none;}
+    .pin{transition:none;}
+    .pin:hover{transform:rotate(45deg);}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="mapcol">
+    <div id="map"></div>
+    <div class="maphdr">
+      <p class="eyebrow">Consortium · 15 partners · 6 countries</p>
+      <h1 class="maptitle">Where ReFORGE is built</h1>
+    </div>
+  </div>
+  <div class="panel">
+    <p class="eyebrow" id="p-eyebrow">Select a country</p>
+    <h2 id="p-title">Italy</h2>
+    <p class="lead" id="p-lead"></p>
+    <div class="countrytabs" id="tabs" role="tablist" aria-label="Partner countries"></div>
+    <div class="cards" id="cards"></div>
+    <p class="hint">Monogram badges stand in for partner logos — real logo files can be dropped in.</p>
+  </div>
+</div>
+<script>
+const COUNTRIES = {
+  IT:{id:380,name:"Italy",   ll:[42.8,12.6], lead:"The coordination and research core: five partners spanning management, AI, traceability, assessment and communication."},
+  ES:{id:724,name:"Spain",   ll:[40.0,-3.7], lead:"Home of Pilot 1, the Shared Hub Model in the Alicante functional territory — from hub operation to manufacturer uptake."},
+  DE:{id:276,name:"Germany", ll:[51.0,10.3], lead:"Home of Pilot 3, the BEMS recovery model in Munich, plus the replication and policy-integration lead."},
+  NL:{id:528,name:"Netherlands",ll:[52.2,5.5], lead:"Territorial intelligence and the circular baseline that conditions every pilot before it reports."},
+  PL:{id:616,name:"Poland",  ll:[52.0,19.4], lead:"Home of Pilot 2, the Integrated Manufacturer Model turning secondary EPS into certified thermal insulation."},
+  HU:{id:348,name:"Hungary", ll:[47.1,19.5], lead:"Carries the replication framework into Central and Eastern European territories."}
+};
+const PARTNERS = [
+  {acr:"STAM", cc:"IT", type:"SME", cls:"", name:"STAM Srl", role:"Project coordinator. Leads project & scientific-technical coordination (WP1) and structures the verified model- and stream-level resources for the CCRI Knowledge Hub."},
+  {acr:"UNIPD", cc:"IT", type:"University", cls:"res", name:"Università degli Studi di Padova", role:"Independent analytical validation of secondary polystyrene in Pilot 2; leads comparative LCA, SSH and distributional assessment (WP7)."},
+  {acr:"ERP", cc:"IT", type:"SME", cls:"", name:"ERP Italia Servizi Srl", role:"Leads the DPP-aligned traceability architecture linking origin to manufacturer input across the three pilots (WP6)."},
+  {acr:"FUTDAT", cc:"IT", type:"SME", cls:"", name:"Futuredata Srl", role:"AI-assisted, computer-vision identification and guided routing at hub intake in Pilot 1 (≥85% precision, ≥90% routing accuracy)."},
+  {acr:"NSB", cc:"IT", type:"SME", cls:"", name:"NSBProject Srl", role:"Leads dissemination, communication and exploitation (WP9); owns the CDEP and the KER register."},
+  {acr:"AIJU", cc:"ES", type:"Research Org", cls:"res", name:"Asociación de Investigación de la Industria del Juguete", role:"Leads Pilot 1 (WP3). Functional assessment, preparation-for-reuse and certification of recovered WEEE components."},
+  {acr:"C-TERRA", cc:"ES", type:"Public Body", cls:"pub", name:"Consorcio TERRA (Plan Zonal 7, Área A2)", role:"Hub operator with institutional access to WEEE collection across 37 municipalities; runs intake, storage, routing and transfer."},
+  {acr:"INJUSA", cc:"ES", type:"SME", cls:"", name:"Industrial Juguetera S.A.", role:"Anchor manufacturer in Pilot 1. Defines industrial acceptance criteria and validates certified recovered components under real production."},
+  {acr:"NEXUS", cc:"ES", type:"SME", cls:"", name:"Applied Innovation Nexus S.L.", role:"Pilot 1 governance board and living lab; aligns the replication methodology with the CCRI Practical Methodology."},
+  {acr:"LHM", cc:"DE", type:"Public Body", cls:"pub", name:"Landeshauptstadt München", role:"Source of end-of-life BEMS and anchor customer in Pilot 3; co-designs the municipal instrument for procuring performance instead of ownership."},
+  {acr:"ICLEI", cc:"DE", type:"NGO", cls:"ngo", name:"ICLEI European Secretariat GmbH", role:"Leads replication, uptake and policy integration (WP8); holds the institutional interface with the CCRI Coordination and Support Office."},
+  {acr:"SIEMENS", cc:"DE", type:"Large Enterprise", cls:"le", name:"Siemens AG", role:"OEM, remanufacturer and warranty provider. Leads Pilot 3 (WP5): take-back, recertification and warranty-parity service supply."},
+  {acr:"CIRCECO", cc:"NL", type:"NGO", cls:"ngo", name:"Circle Economy", role:"Leads baseline, territorial intelligence and co-design (WP2); barriers-and-enablers analysis and the urban material-flow opportunity map."},
+  {acr:"K-FLEX", cc:"PL", type:"Large Enterprise", cls:"le", name:"K-FLEX Polska Sp. z o.o.", role:"Manufacturer and lead of Pilot 2 (WP4): regional EPS sourcing chain and production of certified secondary insulation at the Uniejów plant."},
+  {acr:"MGFU", cc:"HU", type:"SME", cls:"", name:"Magyar Gazdaságfejlesztési Ügynökség", role:"Applies and stress-tests the replication framework in Hungary and further CEE territories (WP8); business-model development per pilot."}
+];
+const byCC = cc => PARTNERS.filter(p=>p.cc===cc);
+const ID2CC = Object.fromEntries(Object.entries(COUNTRIES).map(([cc,v])=>[v.id,cc]));
+let current="IT", pins={}, geoLayers={};
+
+const map = L.map("map",{scrollWheelZoom:true,attributionControl:true,minZoom:3,maxZoom:7}).setView([50,9],4);
+L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{
+  attribution:'© OpenStreetMap contributors', maxZoom:19
+}).addTo(map);
+
+// Partner markers (always render, no data dependency)
+Object.entries(COUNTRIES).forEach(([cc,v])=>{
+  const el=document.createElement("div");
+  el.className="pin"; el.innerHTML='<span>'+cc+'</span>';
+  const icon=L.divIcon({html:el.outerHTML,className:"",iconSize:[34,34],iconAnchor:[17,34]});
+  const mk=L.marker(v.ll,{icon}).addTo(map);
+  mk.on("click",()=>select(cc));
+  pins[cc]=mk;
+});
+
+// Country shading overlay (enhancement; base map + pins work without it)
+fetch("https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/countries-110m.json")
+  .then(r=>r.json())
+  .then(topo=>{
+    const fc = topojson.feature(topo, topo.objects.countries);
+    const partnerFeats = fc.features.filter(f=>ID2CC[+f.id]);
+    partnerFeats.forEach(f=>{
+      const cc=ID2CC[+f.id];
+      const layer=L.geoJSON(f,{style:styleFor(cc,false)});
+      layer.on("click",()=>select(cc));
+      layer.on("mouseover",()=>{if(cc!==current)layer.setStyle(styleFor(cc,true));});
+      layer.on("mouseout",()=>{if(cc!==current)layer.setStyle(styleFor(cc,false));});
+      layer.addTo(map);
+      geoLayers[cc]=layer;
+    });
+    map.fitBounds(L.geoJSON(partnerFeats).getBounds(),{padding:[30,30]});
+    paintGeo();
+  })
+  .catch(()=>{});
+
+function styleFor(cc,hover){
+  const active = cc===current;
+  return {color:"#ffffff", weight:1.5,
+    fillColor: active?"#E87818":(hover?"#0C6C54":"#3d8a74"),
+    fillOpacity: active?0.62:(hover?0.5:0.38)};
+}
+function paintGeo(){ Object.keys(geoLayers).forEach(cc=>geoLayers[cc].setStyle(styleFor(cc,false))); }
+
+function buildTabs(){
+  const t=document.getElementById("tabs");
+  Object.entries(COUNTRIES).forEach(([cc,v])=>{
+    const b=document.createElement("button");
+    b.type="button"; b.className="ctab"; b.dataset.cc=cc;
+    b.setAttribute("role","tab");
+    b.setAttribute("aria-pressed","false");
+    b.setAttribute("aria-label", v.name + ", " + byCC(cc).length + " partners");
+    b.innerHTML=cc+' <span class="n">'+byCC(cc).length+'</span>';
+    b.addEventListener("click",()=>select(cc));
+    t.appendChild(b);
+  });
+}
+function select(cc){
+  current=cc; const v=COUNTRIES[cc];
+  paintGeo();
+  Object.entries(pins).forEach(([k,mk])=>{
+    const node=mk.getElement(); if(node){const p=node.querySelector(".pin"); if(p)p.classList.toggle("active",k===cc);}
+  });
+  document.querySelectorAll(".ctab").forEach(el=>{
+    const on=el.dataset.cc===cc;
+    el.classList.toggle("active",on);
+    el.setAttribute("aria-pressed", on?"true":"false");
+    el.setAttribute("aria-selected", on?"true":"false");
+  });
+  document.getElementById("p-eyebrow").textContent=byCC(cc).length+(byCC(cc).length>1?" partners":" partner");
+  document.getElementById("p-title").textContent=v.name;
+  document.getElementById("p-lead").textContent=v.lead;
+  const box=document.getElementById("cards"); box.innerHTML="";
+  byCC(cc).forEach((p,i)=>{
+    const card=document.createElement("div");
+    card.className="pcard"; card.style.animationDelay=(i*55)+"ms";
+    card.innerHTML='<div class="logo '+p.cls+'">'+p.acr.replace("-","\u2011")+'</div>'+
+      '<div class="pc-body"><div class="pc-top"><span class="pc-acr">'+p.acr+'</span><span class="pc-type">'+p.type+'</span></div>'+
+      '<p class="pc-name">'+p.name+'</p><p class="pc-role">'+p.role+'</p></div>';
+    box.appendChild(card);
+  });
+}
+buildTabs();
+select("IT");
+setTimeout(()=>map.invalidateSize(),300);
+</script>
+</body>
+</html>

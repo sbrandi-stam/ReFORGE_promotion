@@ -1,0 +1,4 @@
+scraps/
+uploads/
+.thumbnail
+*.image-slots.state.json
